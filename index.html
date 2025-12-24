@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <title>Chord Notes Viewer</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    select, label {
+      font-size: 16px;
+      margin-right: 12px;
+    }
+
+    #chordName {
+      margin-top: 12px;
+      font-size: 18px;
+      color: #444;
+    }
+
+    #result {
+      margin-top: 8px;
+      font-size: 22px;
+      font-weight: bold;
+    }
+
+    #comment {
+      margin-top: 24px;
+      padding: 12px;
+      border: 1px solid #ccc;
+      background: #f9f9f9;
+      font-size: 14px;
+      color: #333;
+      max-width: 600px;
+    }
+
+    h2 {
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>コード構成音表示</h2>
+
+  <label>
+    Root:
+    <select id="rootSelect"></select>
+  </label>
+
+  <label>
+    Chord:
+    <select id="chordSelect"></select>
+  </label>
+
+  <label>
+    <input type="checkbox" id="italianToggle">
+    イタリア音名
+  </label>
+
+  <!-- 選択中コード名 -->
+  <div id="chordName"></div>
+
+  <!-- 構成音 -->
+  <div id="result">---</div>
+
+  <!-- コメント -->
+  <div id="comment">
+    <strong>コード表記と読み方</strong>
+    <ul>
+      <li>major（無印）: メジャー</li>
+      <li>minor（m）: マイナー</li>
+      <li>7: セブンス</li>
+      <li>M7（major7 / △7）: メジャーセブンス</li>
+      <li>m7: マイナーセブンス</li>
+      <li>mM7: マイナーメジャーセブンス</li>
+      <li>6: シックス</li>
+      <li>m6: マイナーシックス</li>
+      <li>9: ナインス</li>
+      <li>m9: マイナーナインス</li>
+      <li>add9: アドナインス</li>
+      <li>sus4: サスフォー</li>
+      <li>sus2: サスツー</li>
+      <li>dim(dim7): ディミニッシュ</li>
+      <li>m7-5（ø）: マイナーセブンスフラットファイブ(ハーフディミニッシュ)</li>
+      <li>aug: オーギュメント</li>
+    </ul>
+  </div>
+
+  <script>
+    const NOTES = [
+      "C", "C#", "D", "D#", "E",
+      "F", "F#", "G", "G#", "A", "A#", "B"
+    ];
+
+    const ROOT_OPTIONS = [
+      { label: "C",  value: "C"  },
+      { label: "C#", value: "C#" },
+      { label: "Db", value: "C#" },
+      { label: "D",  value: "D"  },
+      { label: "D#", value: "D#" },
+      { label: "Eb", value: "D#" },
+      { label: "E",  value: "E"  },
+      { label: "F",  value: "F"  },
+      { label: "F#", value: "F#" },
+      { label: "Gb", value: "F#" },
+      { label: "G",  value: "G"  },
+      { label: "G#", value: "G#" },
+      { label: "Ab", value: "G#" },
+      { label: "A",  value: "A"  },
+      { label: "A#", value: "A#" },
+      { label: "Bb", value: "A#" },
+      { label: "B",  value: "B"  }
+    ];
+
+    const CHORD_PATTERNS = {
+      major:  [0, 4, 7],
+      minor:  [0, 3, 7],
+      "7":    [0, 4, 7, 10],
+      m7:     [0, 3, 7, 10],
+      M7:     [0, 4, 7, 11],
+      mM7:    [0, 3, 7, 11],
+      "6":    [0, 4, 7, 9],
+      m6:     [0, 3, 7, 9],
+      "9":    [0, 4, 7, 10, 14],
+      m9:     [0, 3, 7, 10, 14],
+      add9:   [0, 4, 7, 14],
+      sus4:   [0, 5, 7],
+      sus2:   [0, 2, 7],
+      dim:    [0, 3, 6, 9],
+      "m7-5": [0, 3, 6, 10],
+      aug:    [0, 4, 8]
+};
+
+
+    const SHARP_NOTES = {
+      "C":"C","C#":"C#","D":"D","D#":"D#","E":"E",
+      "F":"F","F#":"F#","G":"G","G#":"G#",
+      "A":"A","A#":"A#","B":"B"
+    };
+
+    const FLAT_NOTES = {
+      "C":"C","C#":"Db","D":"D","D#":"Eb","E":"E",
+      "F":"F","F#":"Gb","G":"G","G#":"Ab",
+      "A":"A","A#":"Bb","B":"B"
+    };
+
+    const ITALIAN_NOTES = {
+      "C":"ド","C#":"ド♯","Db":"レ♭",
+      "D":"レ","D#":"レ♯","Eb":"ミ♭",
+      "E":"ミ",
+      "F":"ファ","F#":"ファ♯","Gb":"ソ♭",
+      "G":"ソ","G#":"ソ♯","Ab":"ラ♭",
+      "A":"ラ","A#":"ラ♯","Bb":"シ♭",
+      "B":"シ"
+    };
+
+    const rootSelect    = document.getElementById("rootSelect");
+    const chordSelect   = document.getElementById("chordSelect");
+    const italianToggle = document.getElementById("italianToggle");
+    const chordNameDiv  = document.getElementById("chordName");
+    const resultDiv     = document.getElementById("result");
+
+    function initSelects() {
+      ROOT_OPTIONS.forEach(data => {
+        const opt = document.createElement("option");
+        opt.value = data.value;
+        opt.textContent = data.label;
+        opt.dataset.label = data.label;
+        rootSelect.appendChild(opt);
+      });
+
+      Object.keys(CHORD_PATTERNS).forEach(type => {
+        const opt = document.createElement("option");
+        opt.value = type;
+        opt.textContent = type;
+        chordSelect.appendChild(opt);
+      });
+    }
+
+    function makeChromaticFromRoot(root) {
+      const rootIndex = NOTES.indexOf(root);
+      return NOTES.map((_, i) => NOTES[(rootIndex + i) % 12]);
+    }
+
+    function useFlat() {
+      return rootSelect.selectedOptions[0].dataset.label.includes("b");
+    }
+
+    function convertEnharmonic(notes) {
+      const map = useFlat() ? FLAT_NOTES : SHARP_NOTES;
+      return notes.map(n => map[n]);
+    }
+
+    function getDisplayChordName() {
+      const rootLabel = rootSelect.selectedOptions[0].dataset.label;
+      const type = chordSelect.value;
+      return type === "major" ? rootLabel : rootLabel + type;
+    }
+
+    function updateChord() {
+      const rootValue = rootSelect.value;
+      const type = chordSelect.value;
+
+      const chromatic = makeChromaticFromRoot(rootValue);
+      const pattern   = CHORD_PATTERNS[type];
+
+      let notes = pattern.map(i => chromatic[i%12]);
+      notes = convertEnharmonic(notes);
+
+      if (italianToggle.checked) {
+        notes = notes.map(n => ITALIAN_NOTES[n]);
+      }
+
+      chordNameDiv.textContent =
+        "選択中のコード： " + getDisplayChordName();
+
+      resultDiv.textContent = notes.join(" – ");
+    }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    initSelects();
+    rootSelect.value = "C";
+    chordSelect.value = "major";
+    updateChord();
+
+    rootSelect.addEventListener("change", updateChord);
+    chordSelect.addEventListener("change", updateChord);
+    italianToggle.addEventListener("change", updateChord);
+});
+
+  </script>
+
+</body>
+</html>
